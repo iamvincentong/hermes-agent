@@ -161,6 +161,16 @@ def _build_server() -> Any:
         # which we can't get from a JSON schema at runtime).
         def _make_handler(tool_name: str):
             def _dispatch(**kwargs: Any) -> str:
+                # The JSON schema below is never wired into add_tool (see the
+                # commented-out input_schema note), so FastMCP introspects the
+                # bare **kwargs signature and exposes a single opaque "kwargs"
+                # field. MCP clients therefore send {"kwargs": {...real args...}}.
+                # Unwrap that envelope so handle_function_call receives the flat
+                # arg dict it expects (url=, expression=, etc.).
+                if list(kwargs.keys()) == ["kwargs"] and isinstance(
+                    kwargs.get("kwargs"), dict
+                ):
+                    kwargs = kwargs["kwargs"]
                 try:
                     return handle_function_call(tool_name, kwargs or {})
                 except Exception as exc:
